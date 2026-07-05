@@ -20,55 +20,56 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-/*
- * 初始化舵机
- *
- * 配置 LEDC 外设产生 50Hz PWM 信号, 绑定到指定 GPIO.
- * 初始化完成后输出停止脉宽 (1.5ms), 舵机不转动.
- *
- * 参数:
- *   gpio_num  舵机 PWM 信号连接的 GPIO 编号
- *
- * 前提: 必须在其他 servo_* 函数之前调用
- */
-void servo_init(int gpio_num);
+    /*
+     * 初始化舵机
+     *
+     * 配置 LEDC 外设产生 50Hz PWM 信号, 绑定到指定 GPIO.
+     * 初始化完成后输出停止脉宽 (1.5ms), 舵机不转动.
+     *
+     * 参数:
+     *   gpio_num  舵机 PWM 信号连接的 GPIO 编号
+     *
+     * 前提: 必须在其他 servo_* 函数之前调用
+     */
+    void servo_init(int gpio_num);
 
-/*
- * 顺时针旋转 (非阻塞)
- *
- * 输出 1100us 脉宽, 舵机持续顺时针旋转.
- * 不自动停止, 需上层调用 servo_stop() 刹车.
- *
- * 速度调节: 修改 CW_PULSE_US 宏 (偏离 1500us 越远越快)
- *
- * 前提: 已调用 servo_init()
- */
-void servo_start_cw(void);
+    /*
+     * 顺时针旋转 (非阻塞)
+     *
+     * 输出 1100us 脉宽, 舵机持续顺时针旋转.
+     * 不自动停止, 需上层调用 servo_stop() 刹车.
+     *
+     * 速度调节: 修改 CW_PULSE_US 宏 (偏离 1500us 越远越快)
+     *
+     * 前提: 已调用 servo_init()
+     */
+    void servo_start_cw(void);
 
-/*
- * 逆时针旋转 (非阻塞)
- *
- * 输出 1900us 脉宽, 舵机持续逆时针旋转.
- * 不自动停止, 需上层调用 servo_stop() 刹车.
- *
- * 速度调节: 修改 CCW_PULSE_US 宏 (偏离 1500us 越远越快)
- *
- * 前提: 已调用 servo_init()
- */
-void servo_start_ccw(void);
+    /*
+     * 逆时针旋转 (非阻塞)
+     *
+     * 输出 1900us 脉宽, 舵机持续逆时针旋转.
+     * 不自动停止, 需上层调用 servo_stop() 刹车.
+     *
+     * 速度调节: 修改 CCW_PULSE_US 宏 (偏离 1500us 越远越快)
+     *
+     * 前提: 已调用 servo_init()
+     */
+    void servo_start_ccw(void);
 
-/*
- * 立即停止 (非阻塞, 幂等)
- *
- * 输出 1500us 停止脉宽, 舵机立即刹车.
- * 可安全重复调用 (不会在已停止时产生副作用).
- *
- * 前提: 已调用 servo_init()
- */
-void servo_stop(void);
+    /*
+     * 立即停止 (非阻塞, 幂等)
+     *
+     * 输出 1500us 停止脉宽, 舵机立即刹车.
+     * 可安全重复调用 (不会在已停止时产生副作用).
+     *
+     * 前提: 已调用 servo_init()
+     */
+    void servo_stop(void);
 
 #ifdef __cplusplus
 }

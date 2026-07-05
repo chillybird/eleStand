@@ -26,26 +26,23 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SERVO_GPIO  GPIO_NUM_4
-#define STATUS_MS   2000
+#define SERVO_GPIO GPIO_NUM_4
+#define STATUS_MS 2000
 
 // USB CDC 直写 (不经 UART/stdio)
-static void usb_printf(const char *fmt, ...)
-{
+static void usb_printf(const char *fmt, ...) {
     char buf[128];
     va_list args;
     va_start(args, fmt);
     int len = vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
     if (len > 0) {
-        usb_serial_jtag_write_bytes((const uint8_t *)buf, len,
-                                     pdMS_TO_TICKS(50));
+        usb_serial_jtag_write_bytes((const uint8_t *)buf, len, pdMS_TO_TICKS(50));
     }
 }
 
 // 非阻塞移动: 中断驱动, 碰开关即停
-static void go_to(int target_gpio, const char *label)
-{
+static void go_to(int target_gpio, const char *label) {
     int cw_hits = sw_cw_hits_gpio();
     if (cw_hits == 0) {
         ESP_LOGW("cmd", "Not calibrated");
@@ -54,13 +51,16 @@ static void go_to(int target_gpio, const char *label)
 
     // 已在目标位置
     if ((target_gpio == sw_down_gpio() && sw_is_down()) ||
-        (target_gpio == sw_up_gpio()   && sw_is_up())) {
+        (target_gpio == sw_up_gpio() && sw_is_up())) {
         usb_printf("OK %s (already)\n", label);
         return;
     }
 
-    if (cw_hits == target_gpio) servo_start_cw();
-    else                        servo_start_ccw();
+    if (cw_hits == target_gpio) {
+        servo_start_cw();
+    } else {
+        servo_start_ccw();
+    }
 
     bool ok = (target_gpio == sw_down_gpio()) ? sw_wait_down(30000)
                                               : sw_wait_up(30000);
@@ -74,8 +74,7 @@ static void go_to(int target_gpio, const char *label)
     ESP_LOGI("cmd", "Done: %s", label);
 }
 
-static void handle_cmd(const char *cmd)
-{
+static void handle_cmd(const char *cmd) {
     if (strcmp(cmd, "down") == 0 || strcmp(cmd, "d") == 0) {
         usb_printf("> DOWN\n");
         go_to(sw_down_gpio(), "放下");
@@ -93,9 +92,9 @@ static void handle_cmd(const char *cmd)
         usb_printf("> CCW\n");
     } else if (strcmp(cmd, "status") == 0) {
         usb_printf("DOWN(GPIO%d): %s\n", sw_down_gpio(),
-                    sw_is_down() ? "DOWN" : "--");
+                   sw_is_down() ? "DOWN" : "--");
         usb_printf("UP  (GPIO%d): %s\n", sw_up_gpio(),
-                    sw_is_up()   ? "UP"   : "--");
+                   sw_is_up() ? "UP" : "--");
     } else if (strcmp(cmd, "help") == 0 || strcmp(cmd, "?") == 0) {
         usb_printf("down(d) up(u) cw ccw stop(s) status help\n");
     } else if (strlen(cmd) > 0) {
@@ -103,15 +102,13 @@ static void handle_cmd(const char *cmd)
     }
 }
 
-static void status_timer_cb(TimerHandle_t xTimer)
-{
+static void status_timer_cb(TimerHandle_t xTimer) {
     usb_printf("S: DOWN=%s UP=%s\n",
                sw_is_down() ? "1" : "0",
-               sw_is_up()   ? "1" : "0");
+               sw_is_up() ? "1" : "0");
 }
 
-static void serial_task(void *arg)
-{
+static void serial_task(void *arg) {
     usb_printf("\n=== Servo Ready ===\n");
     usb_printf("down(d)/up(u)/cw/ccw/stop(s)/status/help\n\n");
 
@@ -138,10 +135,8 @@ static void serial_task(void *arg)
     }
 }
 
-void app_main(void)
-{
-    usb_serial_jtag_driver_config_t usb_cfg =
-        USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+void app_main(void) {
+    usb_serial_jtag_driver_config_t usb_cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
     usb_serial_jtag_driver_install(&usb_cfg);
 
     servo_init(SERVO_GPIO);
@@ -149,12 +144,16 @@ void app_main(void)
 
     if (!sw_calibrate()) {
         usb_printf("ERROR: Calibration failed\n");
-        while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+        while (1) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
     }
 
     go_to(sw_down_gpio(), "放下");
 
     xTaskCreate(serial_task, "serial", 4096, NULL, 5, NULL);
 
-    while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
