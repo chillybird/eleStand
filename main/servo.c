@@ -1,11 +1,8 @@
 #include "servo.h"
-
-#include <stdio.h>
 #include "driver/ledc.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 
+// LEDC 配置
 #define LEDC_TIMER          LEDC_TIMER_0
 #define LEDC_MODE           LEDC_LOW_SPEED_MODE
 #define LEDC_CHANNEL        LEDC_CHANNEL_0
@@ -13,6 +10,7 @@
 #define LEDC_FREQUENCY      50
 #define DUTY_MAX            ((1 << LEDC_DUTY_RES) - 1)
 
+// 舵机脉宽 (MG90S 360度)
 #define STOP_PULSE_US       1500
 #define CW_PULSE_US         1100
 #define CCW_PULSE_US        1900
@@ -20,11 +18,13 @@
 
 static int s_servo_gpio = -1;
 
+// 脉宽(us) → LEDC 占空比
 static uint32_t pulse_to_duty(uint32_t pulse_us)
 {
     return (uint32_t)(((float)pulse_us / PWM_PERIOD_US) * DUTY_MAX);
 }
 
+// 写入 PWM 脉宽
 static void write_pulse(uint32_t pulse_us)
 {
     uint32_t duty = pulse_to_duty(pulse_us);
@@ -56,21 +56,10 @@ void servo_init(int gpio_num)
     };
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
 
-    write_pulse(STOP_PULSE_US);
+    servo_stop();
     ESP_LOGI("servo", "Initialized on GPIO %d", s_servo_gpio);
 }
 
-void servo_start_cw(void)
-{
-    write_pulse(CW_PULSE_US);
-}
-
-void servo_start_ccw(void)
-{
-    write_pulse(CCW_PULSE_US);
-}
-
-void servo_stop(void)
-{
-    write_pulse(STOP_PULSE_US);
-}
+void servo_start_cw(void)  { write_pulse(CW_PULSE_US);  }
+void servo_start_ccw(void) { write_pulse(CCW_PULSE_US); }
+void servo_stop(void)      { write_pulse(STOP_PULSE_US);}
