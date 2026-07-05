@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>舵机控制器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1a1a2e; color: #e0e0e0;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh;
+}
+.card {
+    background: #16213e; border-radius: 16px; padding: 32px;
+    width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,.3);
+}
+h1 { font-size: 20px; text-align: center; margin-bottom: 24px; color: #e94560; }
+.status { display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 20px; }
+.status-dot {
+    width: 12px; height: 12px; border-radius: 50%; background: #666;
+    transition: background .3s;
+}
+.status-dot.connected { background: #4ecca3; }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.btn {
+    padding: 16px; border: none; border-radius: 10px;
+    font-size: 18px; font-weight: 600; cursor: pointer;
+    transition: transform .1s, opacity .2s;
+}
+.btn:active { transform: scale(.96); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-down  { background: #e94560; color: #fff; }
+.btn-up    { background: #0f3460; color: #fff; }
+.btn-stop  { background: #533483; color: #fff; grid-column: 1 / -1; }
+.btn-conn  {
+    background: #4ecca3; color: #1a1a2e;
+    grid-column: 1 / -1; font-size: 14px; padding: 12px;
+}
+.btn-cw    { background: #e9a040; color: #1a1a2e; }
+.btn-ccw   { background: #40a0e9; color: #1a1a2e; }
+.indicators { display: flex; justify-content: space-around; margin-bottom: 16px; }
+.indicator { text-align: center; }
+.indicator .label { font-size: 12px; color: #888; margin-bottom: 4px; }
+.indicator .value {
+    font-size: 14px; font-weight: 700; padding: 6px 16px;
+    border-radius: 8px; background: #1a1a2e;
+    transition: background .3s, color .3s;
+}
+.indicator .value.on { background: #4ecca3; color: #1a1a2e; }
+.log-area {
+    background: #0d1117; border-radius: 8px; padding: 12px;
+    height: 160px; overflow-y: auto; font-family: 'Cascadia Code', monospace;
+    font-size: 12px; line-height: 1.6;
+}
+.log-line { color: #8b949e; }
+.log-line .rx { color: #4ecca3; }
+.log-line .tx { color: #58a6ff; }
+.log-line .err { color: #e94560; }
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>MG90S 舵机控制</h1>
+
+    <div class="status">
+        <div class="status-dot" id="dot"></div>
+        <span id="statusText">未连接</span>
+    </div>
+
+    <div class="indicators">
+        <div class="indicator">
+            <div class="label">放下 GP3</div>
+            <div class="value" id="indDown">--</div>
+        </div>
+        <div class="indicator">
+            <div class="label">立起 GP5</div>
+            <div class="value" id="indUp">--</div>
+        </div>
+    </div>
+
+    <div class="btns">
+        <button class="btn btn-conn" id="btnConn" onclick="toggleConnect()">连接设备</button>
+        <button class="btn btn-down" id="btnDown" disabled onclick="send('down\n')">&#9660; 放下</button>
+        <button class="btn btn-up"   id="btnUp"   disabled onclick="send('up\n')">&#9650; 立起</button>
+        <button class="btn btn-cw"   id="btnCw"   disabled>正转 CW</button>
+        <button class="btn btn-ccw"  id="btnCcw"  disabled>反转 CCW</button>
+        <button class="btn btn-stop" id="btnStop" disabled onclick="send('stop\n')">&#9632; 停止</button>
+    </div>
+
+    <div class="log-area" id="log"><div class="log-line">等待连接...</div></div>
+</div>
+
+<script>
+let port = null, reader = null, writer = null, reading = false;
+
+const $ = id => document.getElementById(id);
+const dot = $('dot'), statusText = $('statusText'), btnConn = $('btnConn');
+const btnDown = $('btnDown'), btnUp = $('btnUp'), btnStop = $('btnStop');
+const btnCw = $('btnCw'), btnCcw = $('btnCcw');
+const indDown = $('indDown'), indUp = $('indUp'), logEl = $('log');
+
+function log(msg, cls = '') {
+    const div = document.createElement('div');
+    div.className = 'log-line' + (cls ? ' ' + cls : '');
+    div.textContent = msg;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function toggleConnect() {
+    if (port) { await disconnect(); return; }
+    try {
+        port = await navigator.serial.requestPort({});
+        await port.open({ baudRate: 115200 });
+        reader = port.readable.getReader();
+        writer = port.writable.getWriter();
+        reading = true;
+
+        dot.classList.add('connected');
+        statusText.textContent = '已连接';
+        btnConn.textContent = '断开连接';
+        btnConn.classList.add('disconnect');
+        btnDown.disabled = false;
+        btnUp.disabled = false;
+        btnStop.disabled = false;
+        btnCw.disabled = false;
+        btnCcw.disabled = false;
+
+        log('Connected to ' + port.getInfo().usbVendorId, 'rx');
+        readLoop();
+    } catch (e) {
+        if (e.name !== 'NotFoundError') log('Error: ' + e.message, 'err');
+    }
+}
+
+async function disconnect() {
+    reading = false;
+    try { reader?.cancel(); } catch {}
+    try { reader?.releaseLock(); } catch {}
+    try { writer?.close(); } catch {}
+    try { writer?.releaseLock(); } catch {}
+    try { await port?.close(); } catch {}
+    port = reader = writer = null;
+
+    dot.classList.remove('connected');
+    statusText.textContent = '未连接';
+    btnConn.textContent = '连接设备';
+    btnConn.classList.remove('disconnect');
+    btnDown.disabled = true;
+    btnUp.disabled = true;
+    btnStop.disabled = true;
+    btnCw.disabled = true;
+    btnCcw.disabled = true;
+    indDown.textContent = '--'; indDown.classList.remove('on');
+    indUp.textContent = '--';   indUp.classList.remove('on');
+    log('Disconnected', 'err');
+}
+
+async function send(data) {
+    if (!writer) return;
+    const enc = new TextEncoder();
+    log('TX: ' + data.trim(), 'tx');
+    await writer.write(enc.encode(data));
+}
+
+async function readLoop() {
+    const dec = new TextDecoder();
+    let buf = '';
+    try {
+        while (reading) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            const text = dec.decode(value, { stream: true });
+            buf += text;
+            const lines = buf.split('\n');
+            buf = lines.pop() || '';
+            for (const line of lines) {
+                if (line.trim()) {
+                    log('RX: ' + line.trim(), 'rx');
+                    parseStatus(line.trim());
+                }
+            }
+        }
+    } catch (e) {
+        if (reading) log('Read error: ' + e.message, 'err');
+    }
+    if (reading) await disconnect();
+}
+
+function parseStatus(line) {
+    const m = line.match(/^S:\s*DOWN=(\d)\s+UP=(\d)/);
+    if (m) {
+        indDown.textContent = m[1] === '1' ? 'DOWN' : '--';
+        indDown.classList.toggle('on', m[1] === '1');
+        indUp.textContent   = m[2] === '1' ? 'UP'   : '--';
+        indUp.classList.toggle('on',   m[2] === '1');
+    }
+}
+
+navigator.serial?.addEventListener('disconnect', () => {
+    log('Device disconnected', 'err');
+    disconnect();
+});
+
+// CW/CCW press-and-hold: mousedown=start, mouseup/mouseleave=stop
+btnCw.addEventListener('mousedown',  () => send('cw\n'));
+btnCcw.addEventListener('mousedown', () => send('ccw\n'));
+[btnCw, btnCcw].forEach(btn => {
+    btn.addEventListener('mouseup',   () => send('stop\n'));
+    btn.addEventListener('mouseleave',() => send('stop\n'));
+});
+</script>
+</body>
+</html>
