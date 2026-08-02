@@ -20,6 +20,7 @@ void sw_init(void) {
 }
 
 bool sw_is_down(void)   { return gpio_get_level(SW_DOWN_GPIO) == 0; }
-bool sw_is_up(void)     { return gpio_get_level(SW_UP_GPIO)   == 1; }  // NC 触点: 立起=释放=高电平
+bool sw_is_up(void)     { return gpio_get_level(SW_DOWN_GPIO) == 1
+                             && gpio_get_level(SW_UP_GPIO) == 1; }
 int  sw_down_gpio(void) { return SW_DOWN_GPIO; }
 int  sw_up_gpio(void)   { return SW_UP_GPIO; }
