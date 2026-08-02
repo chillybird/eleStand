@@ -40,6 +40,7 @@ h1 { font-size: 20px; text-align: center; margin-bottom: 24px; color: #e94560; }
 }
 .btn-cw    { background: #e9a040; color: #1a1a2e; }
 .btn-ccw   { background: #40a0e9; color: #1a1a2e; }
+.btn-dbg   { background: #555; color: #ccc; grid-column: 1 / -1; font-size: 12px; padding: 8px; }
 .indicators { display: flex; justify-content: space-around; margin-bottom: 16px; }
 .indicator { text-align: center; }
 .indicator .label { font-size: 12px; color: #888; margin-bottom: 4px; }
@@ -58,6 +59,13 @@ h1 { font-size: 20px; text-align: center; margin-bottom: 24px; color: #e94560; }
 .log-line .rx { color: #4ecca3; }
 .log-line .tx { color: #58a6ff; }
 .log-line .err { color: #e94560; }
+.speed-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.speed-row label { font-size: 13px; color: #888; white-space: nowrap; }
+.speed-row input[type=range] { flex: 1; accent-color: #4ecca3; }
+.speed-row .speed-val {
+    font-size: 14px; font-weight: 700; color: #4ecca3;
+    min-width: 36px; text-align: right;
+}
 </style>
 </head>
 <body>
@@ -80,6 +88,13 @@ h1 { font-size: 20px; text-align: center; margin-bottom: 24px; color: #e94560; }
         </div>
     </div>
 
+    <div class="speed-row">
+        <label>转速</label>
+        <input type="range" id="speedSlider" min="0" max="100" value="10" disabled
+               oninput="onSpeedChange(this.value)">
+        <span class="speed-val" id="speedVal">10%</span>
+    </div>
+
     <div class="btns">
         <button class="btn btn-conn" id="btnConn" onclick="toggleConnect()">连接设备</button>
         <button class="btn btn-down" id="btnDown" disabled onclick="send('down\n')">&#9660; 放下</button>
@@ -87,6 +102,7 @@ h1 { font-size: 20px; text-align: center; margin-bottom: 24px; color: #e94560; }
         <button class="btn btn-cw"   id="btnCw"   disabled>正转 CW</button>
         <button class="btn btn-ccw"  id="btnCcw"  disabled>反转 CCW</button>
         <button class="btn btn-stop" id="btnStop" disabled onclick="send('stop\n')">&#9632; 停止</button>
+        <button class="btn btn-dbg"  id="btnDbg"  disabled onclick="send('debug\n')">调试</button>
     </div>
 
     <div class="log-area" id="log"><div class="log-line">等待连接...</div></div>
@@ -98,7 +114,8 @@ let port = null, reader = null, writer = null, reading = false;
 const $ = id => document.getElementById(id);
 const dot = $('dot'), statusText = $('statusText'), btnConn = $('btnConn');
 const btnDown = $('btnDown'), btnUp = $('btnUp'), btnStop = $('btnStop');
-const btnCw = $('btnCw'), btnCcw = $('btnCcw');
+const btnCw = $('btnCw'), btnCcw = $('btnCcw'), btnDbg = $('btnDbg');
+const speedSlider = $('speedSlider'), speedVal = $('speedVal');
 const indDown = $('indDown'), indUp = $('indUp'), logEl = $('log');
 
 function log(msg, cls = '') {
@@ -127,8 +144,11 @@ async function toggleConnect() {
         btnStop.disabled = false;
         btnCw.disabled = false;
         btnCcw.disabled = false;
+        btnDbg.disabled = false;
+        speedSlider.disabled = false;
 
         log('Connected to ' + port.getInfo().usbVendorId, 'rx');
+        onSpeedChange(speedSlider.value);
         readLoop();
     } catch (e) {
         if (e.name !== 'NotFoundError') log('Error: ' + e.message, 'err');
@@ -153,6 +173,8 @@ async function disconnect() {
     btnStop.disabled = true;
     btnCw.disabled = true;
     btnCcw.disabled = true;
+    btnDbg.disabled = true;
+    speedSlider.disabled = true;
     indDown.textContent = '--'; indDown.classList.remove('on');
     indUp.textContent = '--';   indUp.classList.remove('on');
     log('Disconnected', 'err');
@@ -187,6 +209,11 @@ async function readLoop() {
         if (reading) log('Read error: ' + e.message, 'err');
     }
     if (reading) await disconnect();
+}
+
+function onSpeedChange(val) {
+    speedVal.textContent = val + '%';
+    send('speed ' + val + '\n');
 }
 
 function parseStatus(line) {
