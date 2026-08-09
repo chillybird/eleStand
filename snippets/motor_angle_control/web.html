@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Servo Angle Test</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui;background:#1a1a2e;color:#e0e0e0;display:flex;justify-content:center;align-items:center;min-height:100vh}
+.c{background:#16213e;border-radius:16px;padding:32px;width:380px}
+h1{font-size:20px;text-align:center;color:#e94560;margin-bottom:16px}
+.st{display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:16px;font-size:13px}
+.d{width:10px;height:10px;border-radius:50%;background:#666;transition:.3s}
+.d.on{background:#4ecca3}
+.a{text-align:center;font-size:48px;font-weight:700;color:#4ecca3;margin-bottom:12px}
+.a span{font-size:20px;color:#888}
+.r{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.r input{flex:1;accent-color:#4ecca3}
+.r label{color:#888;font-size:12px;white-space:nowrap}
+button{padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;width:100%}
+button:active{transform:scale(.96)}
+.btn-c{background:#4ecca3;color:#1a1a2e;margin-bottom:10px}
+.bt{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.bt button{background:#1a1a2e;color:#e0e0e0;border:1px solid #333;padding:10px;font-size:13px}
+.bt button:hover{background:#4ecca3;color:#1a1a2e}
+</style>
+</head>
+<body>
+<div class="c">
+<h1>舵机角度测试</h1>
+<div class="st">
+  <div class="d" id="dot"></div>
+  <span id="st">未连接</span>
+</div>
+<div class="a" id="ang">90<span>°</span></div>
+<div class="r">
+  <label>0</label>
+  <input type="range" id="sl" min="0" max="180" value="90" oninput="up(this.value)">
+  <label>180</label>
+</div>
+<button class="btn-c" id="btnC" onclick="toggle()">连接设备</button>
+<div class="bt">
+  <button onclick="send(0)">0°</button>
+  <button onclick="send(90)">90°</button>
+  <button onclick="send(180)">180°</button>
+  <button onclick="send(30)">30°</button>
+  <button onclick="send(60)">60°</button>
+  <button onclick="send(120)">120°</button>
+  <button onclick="send(45)">45°</button>
+  <button onclick="send(135)">135°</button>
+  <button onclick="send(150)">150°</button>
+</div>
+</div>
+<script>
+let port, writer;
+function up(v){ document.getElementById('ang').innerHTML=v+'<span>°</span>' }
+async function toggle(){
+  if(port){ await port.close(); port=writer=null; setConnected(false); return }
+  try{
+    port=await navigator.serial.requestPort({});
+    await port.open({baudRate:115200});
+    writer=port.writable.getWriter();
+    setConnected(true);
+  }catch(e){ if(e.name!='NotFoundError') alert(e.message) }
+}
+function setConnected(v){
+  document.getElementById('dot').classList.toggle('on',v);
+  document.getElementById('st').textContent=v?'已连接':'未连接';
+  document.getElementById('btnC').textContent=v?'断开':'连接设备';
+}
+function send(v){
+  if(!writer) return alert('请先连接设备');
+  var d=new TextEncoder().encode(v+'\n');
+  writer.write(d);
+  up(v);
+}
+</script>
+</body>
+</html>

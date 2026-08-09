@@ -1,17 +1,13 @@
 #ifndef SERVO_H
 #define SERVO_H
 
-#include <stdint.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void servo_init(int gpio_num);
-void servo_start_cw(void);
-void servo_start_ccw(void);
-void servo_stop(void);
-void servo_set_speed(int percent);
+void servo_set_angle(int degree);
+int  servo_get_angle(void);
 
 #ifdef __cplusplus
 }

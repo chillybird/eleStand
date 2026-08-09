@@ -1,6 +1,6 @@
+#include "serial_in.h"
 #include "cmd_queue.h"
 #include "servo.h"
-#include "switch.h"
 #include "driver/usb_serial_jtag.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -9,36 +9,16 @@
 
 static void handle_cmd(const char *buf) {
     if (strcmp(buf, "down") == 0 || strcmp(buf, "d") == 0) {
-        cmd_usb_printf("> DOWN\n");
         cmd_post(CMD_DOWN);
     } else if (strcmp(buf, "up") == 0 || strcmp(buf, "u") == 0) {
-        cmd_usb_printf("> UP\n");
         cmd_post(CMD_UP);
-    } else if (strcmp(buf, "stop") == 0 || strcmp(buf, "s") == 0) {
-        cmd_post(CMD_STOP);
-    } else if (strcmp(buf, "cw") == 0) {
-        cmd_post(CMD_CW);
-    } else if (strcmp(buf, "ccw") == 0) {
-        cmd_post(CMD_CCW);
-    } else if (strncmp(buf, "speed ", 6) == 0) {
-        servo_set_speed(atoi(buf + 6));
-        cmd_usb_printf("> SPEED %d%%\n", atoi(buf + 6));
+    } else if (strncmp(buf, "angle ", 6) == 0) {
+        servo_set_angle(atoi(buf + 6));
+        cmd_usb_printf("angle=%d\n", servo_get_angle());
     } else if (strcmp(buf, "status") == 0) {
-        cmd_usb_printf("DOWN(GPIO%d): %s\n", sw_down_gpio(),
-                       sw_is_down() ? "DOWN" : "--");
-        cmd_usb_printf("UP  (GPIO%d): %s\n", sw_up_gpio(),
-                       sw_is_up() ? "UP" : "--");
-    } else if (strcmp(buf, "debug") == 0) {
-        cmd_usb_printf("=== DEBUG ===\n");
-        cmd_usb_printf("CW=放下 GPIO%d, CCW=立起 GPIO%d\n",
-                       sw_down_gpio(), sw_up_gpio());
-        cmd_usb_printf("DOWN(GPIO%d): %s\n", sw_down_gpio(),
-                       sw_is_down() ? "PRESSED" : "open");
-        cmd_usb_printf("UP  (GPIO%d): %s\n", sw_up_gpio(),
-                       sw_is_up() ? "PRESSED" : "open");
-        cmd_usb_printf("==============\n");
+        cmd_usb_printf("angle=%d\n", servo_get_angle());
     } else if (strcmp(buf, "help") == 0 || strcmp(buf, "?") == 0) {
-        cmd_usb_printf("down(d)/up(u)/cw/ccw/stop(s)/speed(0-100)/help\n");
+        cmd_usb_printf("down/up  angle 0-180  status  help\n");
     } else {
         cmd_usb_printf("? '%s'\n", buf);
     }
@@ -46,7 +26,7 @@ static void handle_cmd(const char *buf) {
 
 static void serial_task(void *arg) {
     cmd_usb_printf("\n=== Servo Ready ===\n");
-    cmd_usb_printf("down(d)/up(u)/cw/ccw/stop(s)/speed(0-100)/help\n\n");
+    cmd_usb_printf("down/up  angle 0-180  status  help\n\n");
 
     char buf[64];
     int idx = 0;
